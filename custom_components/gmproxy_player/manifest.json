@@ -1,0 +1,9 @@
+{
+  "domain": "gmproxy_player",
+  "name": "GMProxy Player",
+  "documentation": "https://community.home-assistant.io",
+  "requirements": [
+  ],
+  "dependencies": [],
+  "codeowners": []
+}

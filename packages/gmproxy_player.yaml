@@ -1,0 +1,21 @@
+media_player:
+  - platform: gmproxy_player
+    gmproxyurl: 'http://192.168.1.2:9999'
+    media_player: 'gmproxy_player_speakers'
+    play_mode: 'gmproxy_player_play_mode'
+
+input_select:
+  gmproxy_player_speakers:
+    name: Speakers
+    icon: mdi:speaker
+    options:
+    - "default"
+    
+  gmproxy_player_play_mode:
+    name: Play mode
+    icon: mdi:shuffle-variant
+    options:
+    - "Normal"
+    - "Shuffle"
+    - "Random"
+    - "Shuffle Random"
