@@ -76,14 +76,12 @@ class GMProxyComponent(MediaPlayerDevice):
         self._gmproxyurl = config.get(CONF_GMPROXYURL, DEFAULT_GMPROXYURL)
         hass.bus.listen_once(EVENT_HOMEASSISTANT_START, self._update_media_players)
 
-        ## search for speakers, wait 15 sec to get them discovered first 
-        call_later(self.hass, 15, self._update_media_players)
+        ## search for speakers, wait 10 sec to get them discovered first 
+        call_later(self.hass, 10, self._update_media_players)
         ## after first search, period of 60 sec should be fine
         SCAN_INTERVAL = timedelta(seconds=60)
         track_time_interval(self.hass, self._update_media_players, SCAN_INTERVAL)
-#        self._unsub_speaker_change = None
-#        self._unsub_speaker_change = track_state_change(self.hass, self._media_player, self._speaker_change)
-        self._speaker = None  ## current speaker entity_id
+        self._speaker = None
         self._attributes = {}
         
         self._unsub_speaker_tracker = None
@@ -161,6 +159,8 @@ class GMProxyComponent(MediaPlayerDevice):
 
     def turn_on(self, *args, **kwargs):
         """ Turn on the selected media_player from input_select """
+        if self._unsub_speaker_tracker:
+            self._unsub_speaker_tracker()
         self._playing = False
         select_speaker = self.hass.states.get(self._media_player)
         self._speaker = "media_player.{}".format(select_speaker.state)
@@ -168,64 +168,39 @@ class GMProxyComponent(MediaPlayerDevice):
         if speaker_state == None:
             self._speaker = None
             return
-        
+        self.schedule_update_ha_state()
         _LOGGER.info("turn on speaker %s",self._speaker)
         
         if speaker_state.state == STATE_OFF or speaker_state.state == STATE_IDLE:
-            self._turn_on_media_player(data={ATTR_ENTITY_ID: self._speaker})
+            self._state = STATE_IDLE 
+            self.hass.services.call(DOMAIN_MP, 'turn_on', {ATTR_ENTITY_ID: self._speaker})
+            self._unsub_speaker_tracker = track_state_change(self.hass, self._speaker, self._sync_player)
         elif speaker_state.state != STATE_OFF:
-            self._turn_off_media_player(data={ATTR_ENTITY_ID: self._speaker})
-            self._unsub_speaker_tracker()            
+            self.hass.services.call(DOMAIN_MP, 'turn_off', {ATTR_ENTITY_ID: self._speaker})
             call_later(self.hass, 1, self.turn_on)
-
-    def _turn_on_media_player(self, data=None):
-        _LOGGER.info("turn_on_mediaplayer")
-
         if self._current_track == None:
             url = "{}/current_track".format(self._gmproxyurl)
             self._current_track = json.loads(requests.get(url).content)
-
+            self.update_media_info()
         if self._current_track == None:
             return
-
-        if data is None:
-            data = {ATTR_ENTITY_ID: self._speaker}
-        self._state = STATE_IDLE 
-        self.schedule_update_ha_state()
-        self.hass.services.call(DOMAIN_MP, 'turn_on', data)
-        if self._unsub_speaker_tracker:
-            self._unsub_speaker_tracker()
-        self._unsub_speaker_tracker = track_state_change(self.hass, self._speaker, self._sync_player)
 
     def turn_off(self, entity_id=None, old_state=None, new_state=None, **kwargs):
         _LOGGER.info("turn_off")
         """ Turn off the selected media_player """
         self._playing = False
-        self._track_name = None
-        self._track_artist = None
-        self._track_album_name = None
-        self._track_album_cover = None
-
-        data = {ATTR_ENTITY_ID: self._speaker}
-        self._turn_off_media_player(data)
-
-    def _turn_off_media_player(self, data=None):
-        _LOGGER.info("turn_off_mediaplayer")
-        """Fire the off action."""
-        self._playing = False
         self._state = STATE_OFF
         self._attributes['_player_state'] = STATE_OFF
+        self.update_media_info()
+
         self.schedule_update_ha_state()
-        if data is None:
-            data = {ATTR_ENTITY_ID: self._speaker}
-        self.hass.services.call(DOMAIN_MP, 'turn_off', data)
+        self.hass.services.call(DOMAIN_MP, 'turn_off', {ATTR_ENTITY_ID: self._speaker})
         if self._unsub_speaker_tracker:
             self._unsub_speaker_tracker()
 
+  
     def _update_media_players(self,now=None):
         entities = []
-#        if self._unsub_speaker_change:
-#            self._unsub_speaker_change()
         state = self.hass.states.get(self._media_player)
         if state == None:
             return
@@ -239,17 +214,6 @@ class GMProxyComponent(MediaPlayerDevice):
             return 
         self.hass.services.call(input_select.DOMAIN, input_select.SERVICE_SET_OPTIONS, {"options": list(entities), "entity_id": self._media_player})
         self.hass.services.call(input_select.DOMAIN, input_select.SERVICE_SELECT_OPTION, {"option": state.state, "entity_id": self._media_player})
-#        self._unsub_speaker_change = track_state_change(self.hass, self._media_player, self._speaker_change)
-
-        
-#    def _speaker_change(self, entity_id=None, old_state=None, new_state=None):
-#        if new_state == None:
-#            return
-#        speaker = self.hass.states.get("media_player.{}".format(new_state.state))
-#        if speaker == None:
-#            return
-#        self._speaker = speaker.entity_id
-#        _LOGGER.info("speaker  %s",self._speaker)
 
     def _sync_player(self, entity_id=None, old_state=None, new_state=None):
         _LOGGER.debug("sync entity: {} old_state: {} new_state: {}".format(entity_id,old_state.state,new_state.state))
@@ -259,20 +223,18 @@ class GMProxyComponent(MediaPlayerDevice):
             _LOGGER.debug("Next track")
             self.media_next_track()
             return
-      
         speaker = self.hass.states.get(self._speaker)
         self._attributes['_player_friendly'] = speaker.attributes['friendly_name'] if 'friendly_name' in speaker.attributes else None 
         self._attributes['_player_state']    = speaker.state
-
         if speaker.state == 'off':
             self._state = STATE_OFF
             self.turn_off()
-
         self._volume = round(speaker.attributes['volume_level'],2) if 'volume_level' in speaker.attributes else None
         self.schedule_update_ha_state()
+        time.sleep(1)      
+
  
     def media_play(self, entity_id=None, old_state=None, new_state=None, **kwargs):
-        #self._state = STATE_PLAYING
         """Send play command."""
         if self._state == STATE_PAUSED:
             self._state = STATE_PLAYING
