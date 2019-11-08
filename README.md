@@ -33,3 +33,11 @@ In lovelace add Entities card with entities:
   input_select.gmproxy_player_play_mode
  
 Speakers is list of mediaplayers detected, and selected will be used as gmproxy_player output
+
+in packages/gmproxy_player.yaml, configure url for gmusicproxy,
+i'll try to wrap up somekind of detection for it but for now, it must be configured:
+
+media_player:
+  - platform: gmproxy_player
+    gmproxyurl: 'http://192.168.1.2:9999'
+
