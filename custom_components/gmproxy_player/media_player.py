@@ -217,12 +217,15 @@ class GMProxyComponent(MediaPlayerDevice):
 
     def _sync_player(self, entity_id=None, old_state=None, new_state=None):
         _LOGGER.debug("sync entity: {} old_state: {} new_state: {}".format(entity_id,old_state.state,new_state.state))
+
         if not self._playing:
           return
+      
         if old_state.state == STATE_PLAYING and new_state.state == STATE_IDLE:
             _LOGGER.debug("Next track")
             self.media_next_track()
             return
+
         speaker = self.hass.states.get(self._speaker)
         self._attributes['_player_friendly'] = speaker.attributes['friendly_name'] if 'friendly_name' in speaker.attributes else None 
         self._attributes['_player_state']    = speaker.state
@@ -238,7 +241,7 @@ class GMProxyComponent(MediaPlayerDevice):
         """Send play command."""
         if self._state == STATE_PAUSED:
             self._state = STATE_PLAYING
-            self._playing = true
+            self._playing = True
             self.schedule_update_ha_state()
             data = {ATTR_ENTITY_ID: self._speaker}
             self.hass.services.call(DOMAIN_MP, 'media_play', data)
@@ -246,7 +249,6 @@ class GMProxyComponent(MediaPlayerDevice):
             try:
                 _url = "{}/get_song?id={}".format(self._gmproxyurl,self._current_track['id'])
                 _LOGGER.info("stream url: (%s)", _url)
-                self._state = STATE_PLAYING
             except:
                 _LOGGER.error("Failed to get URL for track: (%s)", self._current_track)
                 self._turn_off_media_player() 
@@ -259,6 +261,10 @@ class GMProxyComponent(MediaPlayerDevice):
                 ATTR_ENTITY_ID: self._speaker
                 }
             self.hass.services.call(DOMAIN_MP, SERVICE_PLAY_MEDIA, data)
+            self._state = STATE_PLAYING
+            time.sleep(1)
+            self._playing = True
+
 
     def media_pause(self, **kwargs):
         """ Send media pause command to media player """
@@ -292,6 +298,7 @@ class GMProxyComponent(MediaPlayerDevice):
     def media_previous_track(self, **kwargs):
         """Send the previous track command."""
         self._playing = False
+        
         url = "{}/prev_track".format(self._gmproxyurl)
         self._current_track = json.loads(requests.get(url).content)
         self.update_media_info()
@@ -300,16 +307,19 @@ class GMProxyComponent(MediaPlayerDevice):
 
     def media_next_track(self, **kwargs):
         """Send next track command."""
+        
         self._playing = False
         url = "{}/next_track".format(self._gmproxyurl)
         self._current_track = json.loads(requests.get(url).content)
         self.update_media_info()
         time.sleep(1)
+
         if self._state == STATE_PLAYING:
             self.media_play()
 
     def media_stop(self, **kwargs):
         """Send stop command."""
+        self._playing = False
         data = {ATTR_ENTITY_ID: self._speaker}
         self.hass.services.call(DOMAIN_MP, 'media_stop', data)
 
