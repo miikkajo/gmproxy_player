@@ -247,7 +247,8 @@ class GMProxyComponent(MediaPlayerDevice):
             self.hass.services.call(DOMAIN_MP, 'media_play', data)
         else:
             try:
-                _url = "{}/get_song?id={}".format(self._gmproxyurl,self._current_track['id'])
+                id = self._current_track['id'] if 'id' in self._current_track else self._current_track['nid'] 
+                _url = "{}/get_song?id={}".format(self._gmproxyurl,id)
                 _LOGGER.info("stream url: (%s)", _url)
             except:
                 _LOGGER.error("Failed to get URL for track: (%s)", self._current_track)
