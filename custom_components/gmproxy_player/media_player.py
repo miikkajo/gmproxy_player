@@ -171,19 +171,33 @@ class GMProxyComponent(MediaPlayerDevice):
         self.schedule_update_ha_state()
         _LOGGER.info("turn on speaker %s",self._speaker)
         
-        if speaker_state.state == STATE_OFF or speaker_state.state == STATE_IDLE:
-            self._state = STATE_IDLE 
+        if speaker_state.state == STATE_OFF:
             self.hass.services.call(DOMAIN_MP, 'turn_on', {ATTR_ENTITY_ID: self._speaker})
+            self._state = STATE_IDLE
             self._unsub_speaker_tracker = track_state_change(self.hass, self._speaker, self._sync_player)
-        elif speaker_state.state != STATE_OFF:
-            self.hass.services.call(DOMAIN_MP, 'turn_off', {ATTR_ENTITY_ID: self._speaker})
-            call_later(self.hass, 1, self.turn_on)
+            self.schedule_update_ha_state()
+        elif speaker_state.state == STATE_IDLE:
+            self._state = STATE_IDLE 
+            self._unsub_speaker_tracker = track_state_change(self.hass, self._speaker, self._sync_player)
+            self.schedule_update_ha_state()
+        elif speaker_state.state == STATE_PLAYING or speaker_state.state == STATE_PAUSED:
+            self._state = STATE_IDLE 
+            self.hass.services.call(DOMAIN_MP, 'media_stop', {ATTR_ENTITY_ID: self._speaker})
+            self._unsub_speaker_tracker = track_state_change(self.hass, self._speaker, self._sync_player)
+            self.schedule_update_ha_state()
+        else:
+            self._state = STATE_OFF
+            return 
+
         if self._current_track == None:
             url = "{}/current_track".format(self._gmproxyurl)
             self._current_track = json.loads(requests.get(url).content)
             self.update_media_info()
+        
         if self._current_track == None:
-            return
+            self._state = STATE_OFF
+        else:
+            self.media_play()
 
     def turn_off(self, entity_id=None, old_state=None, new_state=None, **kwargs):
         _LOGGER.info("turn_off")
