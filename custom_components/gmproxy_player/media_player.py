@@ -191,9 +191,13 @@ class GMProxyComponent(MediaPlayerDevice):
 
         if self._current_track == None:
             url = "{}/current_track".format(self._gmproxyurl)
-            self._current_track = json.loads(requests.get(url).content)
-            self.update_media_info()
-        
+            try:
+                self._current_track = json.loads(requests.get(url).content)
+                self.update_media_info()
+            except:
+                self._state = STATE_OFF
+                return
+
         if self._current_track == None:
             self._state = STATE_OFF
         else:
@@ -208,6 +212,7 @@ class GMProxyComponent(MediaPlayerDevice):
         self.update_media_info()
 
         self.schedule_update_ha_state()
+        self.hass.services.call(DOMAIN_MP, 'media_stop', {ATTR_ENTITY_ID: self._speaker})
         self.hass.services.call(DOMAIN_MP, 'turn_off', {ATTR_ENTITY_ID: self._speaker})
         if self._unsub_speaker_tracker:
             self._unsub_speaker_tracker()
