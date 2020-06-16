@@ -25,7 +25,7 @@ from homeassistant.const import (
     STATE_PLAYING, STATE_PAUSED, STATE_OFF, STATE_IDLE)
 
 from homeassistant.components.media_player import (
-    MediaPlayerDevice, PLATFORM_SCHEMA, SERVICE_TURN_ON, SERVICE_TURN_OFF,
+    MediaPlayerEntity, PLATFORM_SCHEMA, SERVICE_TURN_ON, SERVICE_TURN_OFF,
     SERVICE_PLAY_MEDIA, SERVICE_MEDIA_PAUSE, ATTR_MEDIA_VOLUME_LEVEL,
     SERVICE_VOLUME_UP, SERVICE_VOLUME_DOWN, SERVICE_VOLUME_SET,
     ATTR_MEDIA_CONTENT_ID, ATTR_MEDIA_CONTENT_TYPE, DOMAIN as DOMAIN_MP)
@@ -67,7 +67,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     add_devices([GMProxyComponent(hass, config)])
     return True
 
-class GMProxyComponent(MediaPlayerDevice):
+class GMProxyComponent(MediaPlayerEntity):
     def __init__(self, hass, config):
         self.hass = hass
         self._name = "gmproxy_player"
